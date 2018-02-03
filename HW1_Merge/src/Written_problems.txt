@@ -1,0 +1,71 @@
+ 
+3)
+
+jtknight
+
+
+4) 
+
+a)
+Consider 
+
+P1 implements petersons correctly, while P0 has modification
+
+Process one request critical section, settung turn=0, then entering critical section because process 0 is not interestes in the CS
+Before Process one exits CS, Process 0 requests CS and sets turn=0. In this case Process 0 will enter CS and both processes are in the CS
+
+b)
+Consider the situation where P1 and P0 request CS. P1 implements petersons correctly, while P0 has modification.
+
+P1 sets turn = 0 and gets to while after P0 has set turn = 1 but before P0 set wantsCS[0]=1
+
+P1 sees that P0 has not set wantCS[0] so he enters the CS.
+
+P0 sets wantsCS[0]=1, see its his turn and enters then CS
+
+2 processes are in the CS
+
+
+
+
+
+
+
+5)
+======================================================================================================
+======================================================================================================
+
+Class PetersonAlgo2 implements Lock
+Boolean wantCS[]={false,false};
+int turn0, turn1 = 0
+
+public void requestCS(int i){
+	int j = 1-i;
+	wantCS[i]=true;
+	if ( i == 0){
+		turn0=turn1+1;
+		while (wantCS[j]==true && (turn0 > turn1) );
+	}
+	else {
+		turn1=turn0+1
+		while (wantCS[j]==true && (turn1 >= turn0) );
+	}
+}
+
+public void releaseCS(int i){
+	wantCS[i] = false;
+	if ( i == 0) turn0=0;
+		else turn1=0
+		}
+
+6)
+======================================================================================================
+======================================================================================================
+
+Assume there is no Choosing Array
+
+Let there be two processes Pi and Pk, where i < k
+
+Consider the event where Pk and Pi attempt to choose a number, and number[k]=number[i], and then K enters the critical section. 
+
+If Pi now tries to enter the critical section, before Pk exits, it will find that (number[k] != 0) && (number[k]=number[i]) But not k < i, so you will have two process in the critical section
