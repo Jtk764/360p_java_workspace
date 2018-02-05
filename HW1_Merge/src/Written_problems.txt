@@ -11,7 +11,7 @@ Consider
 
 P1 implements petersons correctly, while P0 has modification
 
-Process one request critical section, settung turn=0, then entering critical section because process 0 is not interestes in the CS
+Process one request critical section, settung turn=0, then entering critical section because process 0 is not interested in the CS
 Before Process one exits CS, Process 0 requests CS and sets turn=0. In this case Process 0 will enter CS and both processes are in the CS
 
 b)
@@ -57,6 +57,27 @@ public void releaseCS(int i){
 	if ( i == 0) turn0=0;
 		else turn1=0
 		}
+		
+		
+Mutex Proof:
+assume 2 elements are in CS.
+
+Case 1:
+P1 enterd first then P2 request CS and gets access.
+this is impossible because upon requesting CS p2 would have a number one larger than P1
+
+Case 2: both enter at same time
+In this case both processes would have the same number. It is still impossible for both to be in CS, because one process is blocked on having a number equal to the other process.
+
+Deadlock:
+
+Assume deadlock occured. This requires P1 > P2 and P2 >= P1 while both process want CS. The only two possible outcomes is that one process has a larger number or are equal. So this is a contradiction.
+
+Fairness:
+
+Assume one process repeatidly aquires CS while one process is waiting. This requires the rentrant process to recieve a value lower than the waiting process. A process sets its value when it request the section to one higher than the waiting process' number. So upon 2nd entry a process can not have a higher number than a waiting process becuase 1+n !< n, assuming no overflow.
+
+
 
 6)
 ======================================================================================================
