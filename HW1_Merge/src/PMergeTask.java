@@ -14,10 +14,10 @@ public class PMergeTask implements Runnable{
 		destination=dest;
 		if (start >= s1.length ){
 			source1=s2;
-			start1=start%s1.length;
+			start1=start-s1.length;
 			length1=l;
 			length2=0;
-		} else if (start < s1.length && start+l >= s1.length ){
+		} else if (start < s1.length && start+l > s1.length ){
 			source1=s1;
 			source2=s2;
 			start1=start;
@@ -28,6 +28,7 @@ public class PMergeTask implements Runnable{
 			source1=s1;
 			start1=start;
 			length1=l;
+			length2=0;
 			
 		}
 	}

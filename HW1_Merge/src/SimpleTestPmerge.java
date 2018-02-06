@@ -20,10 +20,9 @@ public class SimpleTestPmerge {
 
 	printArray(B);
     merge(A, B, C);
-    printArray(C);
 
-    PMerge.parallelMerge(A, B, D, 10);
-   	
+    PMerge.parallelMerge(A, B, D, 2);
+    printArray(D);
     boolean isSuccess = true;
     for (int i = 0; i < C.length; i++) {
       if (C[i] != D[i]) {
