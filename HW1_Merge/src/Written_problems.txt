@@ -96,6 +96,6 @@ Assume there is no Choosing Array
 
 Let there be two processes Pi and Pk, where i < k
 
-Consider the event where Pk and Pi attempt to choose a number, and number[k]=number[i], and then K enters the critical section. 
+Consider the event where Pk and Pi attempt to choose a number, and number[k]=number[i], and then K enters the critical section before I finishes choosing its number. 
 
 If Pi now tries to enter the critical section, before Pk exits, it will find that (number[k] != 0) && (number[k]=number[i]) But not k < i, so you will have two process in the critical section
