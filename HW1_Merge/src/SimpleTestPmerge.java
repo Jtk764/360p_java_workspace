@@ -2,8 +2,8 @@ import java.util.Arrays;
 
 public class SimpleTestPmerge {
   public static void main (String[] args) {
-    int[] A1 = {1, 3, 5, 7};
-    int[] B1 = {2, 4, 6, 8, 10};
+    int[] A1 = {1, 3, 5, 7, 30, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 900000};
+    int[] B1 = {2, 4, 6, 8, 10, 12, 51};
     verifyParallelMerge(A1, B1);
     
     int[] A2 = {13, 60, 1000, 3000, 129948};

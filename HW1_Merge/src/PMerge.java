@@ -15,8 +15,8 @@ public class PMerge{
 		int threadNum=numThreads;
 		int totalsize=A.length+B.length;
 		if ( numThreads > totalsize ) threadNum = totalsize ;
-		int sizePerTask=(totalsize+threadNum-1)/threadNum;
-		int lastsize=totalsize%sizePerTask;
+		int sizePerTask=totalsize/threadNum;
+		int lastsize=totalsize-(threadNum-1)*sizePerTask;
 		if (lastsize==0)lastsize=sizePerTask;
 		for (int i = 0; i < threadNum-1; i++) {
 			pool.execute(new PMergeTask(i*sizePerTask, sizePerTask, A, B, C));
