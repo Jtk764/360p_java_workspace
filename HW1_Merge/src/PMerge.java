@@ -19,16 +19,15 @@ public class PMerge{
 		int lastsize=totalsize-(threadNum-1)*sizePerTask;
 		if (lastsize==0)lastsize=sizePerTask;
 		for (int i = 0; i < threadNum-1; i++) {
-			pool.execute(new PMergeTask(i*sizePerTask, sizePerTask, A, B, C));
+			pool.execute(new PMergeTask(i*sizePerTask, i*sizePerTask+sizePerTask, A, B, C));
 		}
-		pool.execute(new PMergeTask((threadNum-1)*sizePerTask, lastsize, A, B, C));
+		pool.execute(new PMergeTask(C.length-lastsize-1, C.length, A, B, C));
 		pool.shutdown();
 		try {
 			  pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
 			} catch (InterruptedException e) {
 				
 			}
-		PSort.parallelSort(C,0, C.length);
   }
 
 

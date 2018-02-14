@@ -38,29 +38,29 @@ public class RecursiveSortingAction extends RecursiveAction {
 
 
 
-    int partition(int arr[], int low, int high)
+    int partition(int a[], int s, int e)
     {
-        int pivot = arr[high]; 
-        int i = (low-1); // index of smaller element
-        for (int j=low; j<high; j++)
+        int p = a[e]; 
+        int i = (s-1); // index of smaller element
+        for (int j=s; j<e; j++)
         {
             // If current element is smaller than or
             // equal to pivot
-            if (arr[j] <= pivot)
+            if (a[j] <= p)
             {
                 i++;
  
                 // swap arr[i] and arr[j]
-                int temp = arr[i];
-                arr[i] = arr[j];
-                arr[j] = temp;
+                int tmp = a[i];
+                a[i] = a[j];
+                a[j] = tmp;
             }
         }
  
         // swap arr[i+1] and arr[high] (or pivot)
-        int temp = arr[i+1];
-        arr[i+1] = arr[high];
-        arr[high] = temp;
+        int temp = a[i+1];
+        a[i+1] = a[e];
+        a[e] = temp;
  
         return i+1;
     }
@@ -69,7 +69,7 @@ public class RecursiveSortingAction extends RecursiveAction {
 
 	@Override
 	protected void compute() {
-		if (end-start >= 16)Arrays.sort(arr);
+		if (end-start >= 16); 
 		else if(start < end){
 			splitTasks();
 		}

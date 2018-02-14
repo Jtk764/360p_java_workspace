@@ -11,9 +11,9 @@ public class FairReadWriteLock {
                         
 	public synchronized void beginRead() {
 		myThreadLocal.set(new Timestamp((new Date()).getTime()));
-		readers.addLast
-			(myThreadLocal.get());
-		while( writers.peekLast() != null && myThreadLocal.get().after(writers.peekFirst())){
+		readers.addLast(myThreadLocal.get());
+		while( writers.peekLast() != null && 
+				myThreadLocal.get().after(writers.peekFirst())){
 			try {
 				wait();
 			} catch (InterruptedException e) {
@@ -31,7 +31,9 @@ public class FairReadWriteLock {
 	public synchronized void beginWrite() {
 		myThreadLocal.set(new Timestamp((new Date()).getTime()));
 		writers.addLast(myThreadLocal.get());
-		while( readers.peekFirst() != null && myThreadLocal.get().after(readers.peekFirst()) && !writers.peekFirst.equals(myThreadLocal.get())){
+		while( ( readers.peekFirst() != null && 
+				myThreadLocal.get().after(readers.peekFirst()) ) || 
+				!(writers.peekFirst()).equals(myThreadLocal.get())){
 			try {
 				wait();
 			} catch (InterruptedException e) {
