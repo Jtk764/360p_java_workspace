@@ -113,11 +113,12 @@ public class PriorityQueue {
 						if(!added) {
 							cur.next = e;
 							e.prev = cur;
+							cur.lock.unlock();
 							return index++;
 						}
 					}finally { 
-						cur.lock.unlock(); 
-						}
+						if(added) cur.next.lock.unlock(); 
+					}
 					}
 				}
 		}finally { addLock.unlock(); }
