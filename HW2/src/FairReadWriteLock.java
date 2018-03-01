@@ -1,19 +1,19 @@
-import java.sql.Timestamp;
-import java.util.Date;
 import java.util.LinkedList;
 
 
 
 public class FairReadWriteLock {
-	LinkedList<Timestamp> writers= new LinkedList<Timestamp>();
-	LinkedList<Timestamp> readers= new LinkedList<Timestamp>();
-	private ThreadLocal<Timestamp> myThreadLocal = new ThreadLocal<Timestamp>();
+	LinkedList<Integer> writers= new LinkedList<Integer>();
+	LinkedList<Integer> readers= new LinkedList<Integer>();
+	private ThreadLocal<Integer> myThreadLocal = new ThreadLocal<Integer>();
+	static int index=0;
                         
 	public synchronized void beginRead() {
-		myThreadLocal.set(new Timestamp((new Date()).getTime()));
+		index++;
+		myThreadLocal.set(index);
 		readers.addLast(myThreadLocal.get());
 		while( writers.peekLast() != null && 
-				myThreadLocal.get().after(writers.peekFirst())){
+				myThreadLocal.get() >  writers.peekFirst()){
 			try {
 				wait();
 			} catch (InterruptedException e) {
@@ -29,11 +29,12 @@ public class FairReadWriteLock {
 	}
 	
 	public synchronized void beginWrite() {
-		myThreadLocal.set(new Timestamp((new Date()).getTime()));
+		index++;
+		myThreadLocal.set(index);
 		writers.addLast(myThreadLocal.get());
 		while( ( readers.peekFirst() != null && 
-				myThreadLocal.get().after(readers.peekFirst()) ) || 
-				!(writers.peekFirst()).equals(myThreadLocal.get())){
+				myThreadLocal.get() > (readers.peekFirst()) ) || 
+				!((writers.peekFirst())==myThreadLocal.get())){
 			try {
 				wait();
 			} catch (InterruptedException e) {
