@@ -3,7 +3,11 @@ import java.util.LinkedList;
 
 public class Student {
 	private LinkedList<Book> inventory;
-	private String name;
+	public String name;
+	
+	public Student (String s){
+		name=s;
+	}
 	
 	public synchronized void addBook(Book b){
 		inventory.add(b);
