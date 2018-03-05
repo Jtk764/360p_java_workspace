@@ -6,7 +6,7 @@ public class FairReadWriteLock {
 	LinkedList<Integer> writers= new LinkedList<Integer>();
 	LinkedList<Integer> readers= new LinkedList<Integer>();
 	private ThreadLocal<Integer> myThreadLocal = new ThreadLocal<Integer>();
-	static int index=0;
+	volatile static int index=0;
                         
 	public synchronized void beginRead() {
 		index++;
