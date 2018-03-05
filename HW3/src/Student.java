@@ -7,6 +7,7 @@ public class Student {
 	
 	public Student (String s){
 		name=s;
+		inventory = new LinkedList<Book>();
 	}
 	
 	public synchronized void addBook(Book b){

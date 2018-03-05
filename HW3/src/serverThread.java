@@ -81,6 +81,10 @@ public class serverThread implements Runnable{
 		        		  byte[] buffer = new byte[s.length()];
 			        	  buffer = s.getBytes();
 			        	  udpClient.send(new DatagramPacket(buffer, buffer.length, ia, rPacket.getPort()));
+			        	  s = String.format("done");
+		        		  buffer = new byte[s.length()];
+			        	  buffer = s.getBytes();
+			        	  udpClient.send(new DatagramPacket(buffer, buffer.length, ia, rPacket.getPort()));
 			        	  continue;
 		        	  }
 		        	  arr.add("done");
@@ -98,7 +102,6 @@ public class serverThread implements Runnable{
 		          }
 		         }
 				else {
-					mode=0;
 					 cmd=din.nextLine();
 					 String[] tokens = cmd.split(" ");
 			          if (tokens[0].equals("setmode")) {
@@ -128,7 +131,9 @@ public class serverThread implements Runnable{
 			        	  if ( arr == null){
 			        		  String s = String.format("No record found for "+tokens[1]);
 				        	  pout.println(s);
+				        	  pout.println("done");
 				        	  pout.flush(); 
+				        	 
 				        	  continue;
 			        	  }
 			        	  arr.add("done");

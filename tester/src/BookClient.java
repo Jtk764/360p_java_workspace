@@ -1,20 +1,16 @@
-
-
 import java.util.Scanner;
 
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.*;
 public class BookClient {
 	
 
     static String hostAddress="localhost";
-    static int port = 8000;
+    static int port = BookServer.Port;
     static int clientId;
     static int mode=0;
     static int len = 1024;
@@ -73,7 +69,6 @@ public class BookClient {
           } else if (tokens[0].equals("exit")) {
         	  sc.close();
         	  endClient(cmd); 
-        	  break;
           } else {
             System.out.println("ERROR: No such command");
           }
@@ -95,12 +90,8 @@ public class BookClient {
 		  byte[] buffer = new byte[s.length()];
 		  buffer = s.getBytes(); 
 		  udpSocket.send(new DatagramPacket(buffer, buffer.length, ia, port));
-		  udpSocket.receive(rPacket);
-		  InetSocketAddress endpoint= new InetSocketAddress(hostAddress,Integer.parseInt(new String(rPacket.getData(), 0,
-		rPacket.getLength())));
 		  if (tcpSocket == null){
-		  tcpSocket = new Socket();
-		  tcpSocket.connect(endpoint);
+		  tcpSocket = new Socket(hostAddress, port);
 		  din = new Scanner(tcpSocket.getInputStream());
 		  pout = new PrintStream(tcpSocket.getOutputStream()); 
 		  }
@@ -220,3 +211,6 @@ public class BookClient {
 	}
 	  
 }
+  
+  
+  

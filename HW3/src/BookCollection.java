@@ -23,6 +23,7 @@ public class BookCollection {
 				tmp = collection[i];
 				tmp.setAndGetId(id);
 				tmp.setStatus(true);
+				remaining.decrementAndGet();
 			}
 			else i++;
 		}

@@ -17,8 +17,8 @@ public class BookServer {
 	
 	final static int Port = 8000;
 	public static AtomicInteger  requestId = new AtomicInteger(1);
-	private static ArrayList<Student> students;
-	public static ArrayList<BookCollection> inventory;
+	private static ArrayList<Student> students = new ArrayList<Student>();
+	public static ArrayList<BookCollection> inventory = new ArrayList<BookCollection>();
 	private static DatagramSocket listener;
 	private static ForkJoinPool pool;
     static int len = 1024;
@@ -41,8 +41,8 @@ public class BookServer {
     }
     String fileName = args[0];
     parseInventory(fileName);
+    rPacket = new DatagramPacket(rbuffer, rbuffer.length);
     while (true){
-    	rPacket=rPacket = new DatagramPacket(rbuffer, rbuffer.length);
     	try {
 			listener.receive(rPacket);
 			String s = new String(rPacket.getData(), 0, rPacket.getLength());
@@ -68,11 +68,15 @@ public class BookServer {
   public static synchronized String checkout (String s){
 	  String[] tmp=s.split(" ");
 	  Book b=null;
-	  Pattern MY_PATTERN = Pattern.compile("*");
+	  Pattern MY_PATTERN = Pattern.compile("“([^”]*)”");
 	  Matcher m;
 	  m= MY_PATTERN.matcher(s);
+	  String tmp2=null;
+	  if ( m.find()){
+		  tmp2= String.format("“"+m.group(1)+"”");
+	  }
 	  for (BookCollection bc : inventory){
-		  if (bc.name.equals(m.group(1))) { 
+		  if (bc.name.equals(tmp2)) { 
 			 b=bc.checkoutBook(requestId.get());
 			 if(b==null) return "Request Failed - Book not available";
 			 break;
@@ -82,9 +86,9 @@ public class BookServer {
 	  requestId.incrementAndGet();
 	  Student student=null;
 	  for (Student s2 : students){
-		  if (s2.name.equals(tmp[tmp.length-1])) {student=s2; break; }
+		  if (s2.name.equals(tmp[1])) {student=s2; break; }
 	  }
-	  if (student == null){ student = new Student(tmp[tmp.length-1]);}
+	  if (student == null){ student = new Student(tmp[1]); students.add(student);}
 	  student.addBook(b);
 	  return String.format("Your request has been approved, "+b.getId()+" "+student.name+" "+b.getName());
   }
@@ -143,16 +147,18 @@ public class BookServer {
   
   private static void parseInventory(String fileName){
 	  File  file = new File(fileName);
-	  Pattern MY_PATTERN = Pattern.compile("*");
+	  Pattern MY_PATTERN = Pattern.compile("“([^”]*)”");
 	  Matcher m;
 	  try {
 		Scanner sc = new Scanner(file);
 		 while (sc.hasNextLine()) {
 			 String tmp = sc.nextLine();
 			 m= MY_PATTERN.matcher(tmp);
+			if ( m.find()){
 			 String [] split = tmp.split(" ");
-			 inventory.add(new BookCollection(m.group(1), Integer.parseInt(split[split.length-1])));
-		 }
+			 inventory.add(new BookCollection(String.format("“"+m.group(1)+"”"), Integer.parseInt(split[split.length-1])));
+			}
+		}
 		 sc.close();
 	} catch (FileNotFoundException e) {
 		e.printStackTrace();
