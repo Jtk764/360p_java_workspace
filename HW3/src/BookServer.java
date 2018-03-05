@@ -68,7 +68,7 @@ public class BookServer {
   public static synchronized String checkout (String s){
 	  String[] tmp=s.split(" ");
 	  Book b=null;
-	  Pattern MY_PATTERN = Pattern.compile("“([^”]*)”");
+	  Pattern MY_PATTERN = Pattern.compile("\"([^\"]*)\"");
 	  Matcher m;
 	  m= MY_PATTERN.matcher(s);
 	  String tmp2=null;
@@ -147,7 +147,7 @@ public class BookServer {
   
   private static void parseInventory(String fileName){
 	  File  file = new File(fileName);
-	  Pattern MY_PATTERN = Pattern.compile("“([^”]*)”");
+	  Pattern MY_PATTERN = Pattern.compile("\"([^\"]*)\"");
 	  Matcher m;
 	  try {
 		Scanner sc = new Scanner(file);
