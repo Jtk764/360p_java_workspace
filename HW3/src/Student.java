@@ -25,4 +25,17 @@ public class Student {
 		}
 		return tmp;
 	}
+	
+	public synchronized Book getBook( int id){
+		for (Book b : inventory){
+			if (b.getId() == id){
+				return b;
+			}
+		}
+		return null;
+	}
+	
+	public synchronized boolean isEmpty( ){
+		return inventory.isEmpty();
+	}
 }

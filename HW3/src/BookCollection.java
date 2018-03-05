@@ -1,7 +1,7 @@
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class BookCollection {
-	private String name;
+	public String name;
 	private AtomicInteger remaining;
 	private Book[] collection;
 	
@@ -14,7 +14,7 @@ public class BookCollection {
 		}
 	}
 	
-	public synchronized Book checkoutBook(int id){
+	public Book checkoutBook(int id){
 		if (remaining.get() == 0) return null;
 		Book tmp=null;
 		int i =0;
@@ -29,7 +29,7 @@ public class BookCollection {
 		return tmp;
 		};
 	
-	public synchronized String returnBook(int id){
+	public String returnBook(int id){
 		for (int i=0; i < collection.length; i++){
 			if ( id == collection[i].getId()){
 				remaining.incrementAndGet();

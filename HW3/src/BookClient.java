@@ -1,13 +1,10 @@
 import java.util.Scanner;
 
-import javax.print.attribute.standard.RequestingUserName;
-
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.*;
 public class BookClient {
 	
@@ -23,6 +20,9 @@ public class BookClient {
     static Socket tcpSocket=null;
     static InetAddress ia;
     static File file;
+    static Scanner din;
+    static PrintStream pout;
+    static LinkedList<String> print = new LinkedList<String>();
 	
   public static void main (String[] args) {
     if (args.length != 2) {
@@ -32,7 +32,6 @@ public class BookClient {
       System.exit(-1);
     }
 
-    //TO-DO: get a client socket from server first
     try {
     	ia = InetAddress.getByName(hostAddress);
 		DatagramSocket datasocket = new DatagramSocket();
@@ -43,6 +42,7 @@ public class BookClient {
 		datasocket.receive(rPacket);
 		port = Integer.parseInt(new String(rPacket.getData(), 0,
 		rPacket.getLength()));
+		udpSocket=datasocket;
 	} catch (Exception e) {
 		// TODO Auto-generated catch block
 		e.printStackTrace();
@@ -52,7 +52,6 @@ public class BookClient {
     clientId = Integer.parseInt(args[1]);
     try {
         Scanner sc = new Scanner(new FileReader(commandFile));
-        udpSocket = new DatagramSocket();
         while(sc.hasNextLine()) {
           String cmd = sc.nextLine();
           String[] tokens = cmd.split(" ");
@@ -68,6 +67,7 @@ public class BookClient {
           } else if (tokens[0].equals("list")) {
         	  list(cmd);
           } else if (tokens[0].equals("exit")) {
+        	  sc.close();
         	  endClient(cmd); 
           } else {
             System.out.println("ERROR: No such command");
@@ -79,58 +79,105 @@ public class BookClient {
   }
   
   
-  private static void setmode(String s){
-	  if ( s.equals("U") && mode == 0 ){
-		  DatagramPacket rPacket;
-
-	  }
-	  else if (s.equals("T") && mode == 1){
-		  
-	  }
-	  else if (s.equals("T") && mode != 1){
-		  
-	  }
-	  else if (s.equals("U") && mode != 0){
-		  
+  private static void setmode(String s) throws IOException{
+	String[] tmp=s.split(" ");
+	 if (tmp[tmp.length-1].equals("U") && mode != 0){
+		 pout.println(s);
+		 mode=0;
 	  }  
-  }
-  
-  private static void borrow(String s){
-	  if (mode == 0 ){
-
-	  }
-	  else {
-		  
-	  }
-
-  }
-  
-  
-  private static void list(String s){
-	  if (mode == 0 ){
-
-	  }
-	  else {
-		  
-	  }
-
-  }
-  
-  private static void unborrow(String s){
-	  if (mode == 0 ){
-
-	  }
-	  else {
-		  
+	  else if (tmp[tmp.length-1].equals("T") && mode != 1){
+		 
+		  byte[] buffer = new byte[s.length()];
+		  buffer = s.getBytes(); 
+		  udpSocket.send(new DatagramPacket(buffer, buffer.length, ia, port));
+		  if (tcpSocket == null){
+		  tcpSocket = new Socket(hostAddress, port);
+		  din = new Scanner(tcpSocket.getInputStream());
+		  pout = new PrintStream(tcpSocket.getOutputStream()); 
+		  }
+		  mode=1;
 	  }
   }
   
-  private static void inventory (String s){
+  private static void borrow(String s) throws IOException{
 	  if (mode == 0 ){
-
+		  byte[] buffer = new byte[s.length()];
+		  buffer = s.getBytes();
+		  udpSocket.send(new DatagramPacket(buffer, buffer.length, ia, port));
+		  udpSocket.receive(rPacket);
+		  print.add(new String(rPacket.getData(), 0,
+					rPacket.getLength()));
 	  }
 	  else {
-		  
+		  pout.println(s);
+		  pout.flush();
+		  print.add(din.nextLine());
+	  }
+
+  }
+  
+  
+  private static void list(String s) throws IOException{
+	  if (mode == 0 ){
+		  byte[] buffer = new byte[s.length()];
+		  buffer = s.getBytes();
+		  udpSocket.send(new DatagramPacket(buffer, buffer.length, ia, port));
+		  while (true){
+		  udpSocket.receive(rPacket);
+		  String tmp=new String(rPacket.getData(), 0, rPacket.getLength());
+		  if ( tmp.equals("done")) break;
+		  print.add(tmp);
+		  }
+	  }
+	  else {
+		  pout.println(s);
+		  pout.flush();
+		  while (true){
+		  String tmp=din.nextLine();
+		  if ( tmp.equals("done")) break;
+		  print.add(tmp);
+		  }
+	  }
+
+  }
+  
+  private static void unborrow(String s) throws IOException{
+	  if (mode == 0 ){
+		  byte[] buffer = new byte[s.length()];
+		  buffer = s.getBytes();
+		  udpSocket.send(new DatagramPacket(buffer, buffer.length, ia, port));
+		  udpSocket.receive(rPacket);
+		  print.add(new String(rPacket.getData(), 0,
+					rPacket.getLength()));
+	  }
+	  else {
+		  pout.println(s);
+		  pout.flush();
+		  print.add(din.nextLine());
+	  }
+
+  }
+  
+  private static void inventory (String s) throws IOException{
+	  if (mode == 0 ){
+		  byte[] buffer = new byte[s.length()];
+		  buffer = s.getBytes();
+		  udpSocket.send(new DatagramPacket(buffer, buffer.length, ia, port));
+		  while (true){
+		  udpSocket.receive(rPacket);
+		  String tmp=new String(rPacket.getData(), 0, rPacket.getLength());
+		  if ( tmp.equals("done")) break;
+		  print.add(tmp);
+		  }
+	  }
+	  else {
+		  pout.println(s);
+		  pout.flush();
+		  while (true){
+		  String tmp=din.nextLine();
+		  if ( tmp.equals("done")) break;
+		  print.add(tmp);
+		  }
 	  }
 
   }
@@ -140,17 +187,30 @@ public class BookClient {
   
   
 	  
-	  private static void endClient (String s){
+	  private static void endClient (String s) throws IOException{
 		  if (mode == 0 ){
-
+			  byte[] buffer = new byte[s.length()];
+			  buffer = s.getBytes();
+			  udpSocket.send(new DatagramPacket(buffer, buffer.length, ia, port));
 		  }
 		  else {
-			  
+			  pout.println(s);
+			  pout.flush();
 		  }
-
-	  }
-
-  }
+		  if (tcpSocket != null) tcpSocket.close();
+		  udpSocket.close();
+		  file = new File(String.format("out_"+clientId+".txt"));
+		  if (file.exists()){ file.delete();}
+		  file.createNewFile();
+		  file.setWritable(true);
+		  PrintStream fout = new PrintStream(file);
+		  for (String out : print){
+			  fout.println(out);
+		  }
+		  fout.close();
+	}
+	  
+}
   
   
   
