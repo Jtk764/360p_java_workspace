@@ -141,7 +141,7 @@ public class BookClient {
 	  else {
 		  pout.println(s);
 		  pout.flush();
-		  while (true){
+		  while (din.hasNextLine()){
 		  String tmp=din.nextLine();
 		  if ( tmp.equals("done")) break;
 		  print.add(tmp);
