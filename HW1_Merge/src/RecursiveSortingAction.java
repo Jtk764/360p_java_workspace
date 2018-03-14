@@ -69,10 +69,33 @@ public class RecursiveSortingAction extends RecursiveAction {
 
 	@Override
 	protected void compute() {
-		if (end-start >= 16); 
+		if (end-start >= 16) sort() ; 
 		else if(start < end){
 			splitTasks();
 		}
 		
 	}
+	
+	
+	
+	private void sort(){
+		for(int ind = start; ind < end; ind++){
+			int j = ind;
+			if(j == start){
+				continue;
+			}
+			while(j > start){
+				if(arr[j] < arr[j-1]){
+					int temp = arr[j];
+					arr[j] = arr[j-1];
+					arr[j-1] = temp;
+					j--;
+				}
+				else break;
+			}
+		}}
+
+	
+	
+	
 }
