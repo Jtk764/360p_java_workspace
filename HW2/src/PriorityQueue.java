@@ -1,3 +1,4 @@
+import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -17,7 +18,7 @@ public class PriorityQueue {
 			priority = p;
 		}
 	}
-	
+	HashSet<String> list = new HashSet<String>();
 	int capacity;
 	node head;
 	Lock addLock = new ReentrantLock();
@@ -38,6 +39,8 @@ public class PriorityQueue {
         // Returns the current position in the list where the name was inserted;
         // otherwise, returns -1 if the name is already present in the list.
         // This method blocks when the list is full.
+		if(list.contains(name)) return -1;
+		
 		boolean wakePop = false;
 		addLock.lock();
 		try {
@@ -50,6 +53,7 @@ public class PriorityQueue {
 			int index = size.getAndIncrement();
 			if(index == 0) {
 				head = e;
+				list.add(name);
 				wakePop = true;
 			}
 			else if (index == 1) {
@@ -63,11 +67,13 @@ public class PriorityQueue {
 						head.prev = e;
 						e.next = head;
 						head = e;
+						list.add(name);
 						return 0;
 					}
 					else {
 						head.next = e;
 						e.prev = head;
+						list.add(name);
 						return 1;
 					} 
 				} finally {h.lock.unlock();}
@@ -76,11 +82,16 @@ public class PriorityQueue {
 				index = 0;
 				node cur = head;
 				cur.lock.lock();
-				if(cur.priority < priority) {
+				if(cur.name.equals(name)) {
+					cur.lock.unlock();
+					return -1;
+				}
+				else if(cur.priority < priority) {
 					try {
 						head.prev = e;
 						e.next = head;
 						head = e;
+						list.add(name);
 						return 0;
 					} finally { cur.lock.unlock(); }
 				}
@@ -88,33 +99,46 @@ public class PriorityQueue {
 					boolean added = false;
 					try {
 						while(cur.next != null) {
-							if(cur.name == name) {
+							if(cur.name.equals(name)) {
+								cur.lock.unlock();
 								return -1;
 							}
 							else {
 								cur.next.lock.lock();
+								boolean need = true;
 								try {
-									if(cur.next.priority < priority) {
+									if(cur.next.name.equals(name)) {
+										cur.next.lock.unlock();
+										need = false;
+										return -1;
+									}
+									else if(cur.next.priority < priority) {
+										
 										e.next = cur.next;
 										e.prev = cur;
 										cur.next = e;
 										e.next.prev = e;
 										added = true;
 										cur = cur.next;
+										list.add(name);
 										return index + 1;
 									}
 									else {
 										index++;
 										cur = cur.next;
 									}
-								} finally { cur.prev.lock.unlock(); }
+								} finally { 
+									if(need) cur.prev.lock.unlock();
+									else cur.lock.unlock(); 
+								}
 							}	
 						}
 						if(!added) {
 							cur.next = e;
 							e.prev = cur;
 							cur.lock.unlock();
-							return index++;
+							list.add(name);
+							return index+1;
 						}
 					}finally { 
 						if(added) cur.next.lock.unlock(); 
@@ -184,6 +208,7 @@ public class PriorityQueue {
 				if(size.getAndDecrement() == capacity) {
 					wakePush = true;
 				}
+				list.remove(oldHead.name);
 			}finally { oldHead.lock.unlock(); }
 		}finally { popLock.unlock(); }
 		
@@ -193,6 +218,7 @@ public class PriorityQueue {
 				notFull.signalAll();
 			}finally { addLock.unlock(); }
 		}
+		
 		return result;
 	}
 }
