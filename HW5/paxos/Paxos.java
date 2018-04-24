@@ -35,10 +35,10 @@ public class Paxos implements PaxosRMI, Runnable{
     Request prepared;
     Request accepted;
     HashMap<Integer, retStatus> seqStatus;
-    ReentrantLock m1; 	//for prepared
-    ReentrantLock m2; 	//for accepted
-    ReentrantLock m3; 	//for status
-    Semaphore m4; 		//used for proposer creation
+    ReentrantLock preparedLock; 	//for prepared
+    ReentrantLock acceptedLock; 	//for accepted
+    ReentrantLock statusLock; 	//for status
+    Semaphore proposerLock; 		//used for proposer creation
     Object tmp; 		//used for proposer creation
     int tmpseq; 		//used for proposer creation
     					
@@ -46,6 +46,7 @@ public class Paxos implements PaxosRMI, Runnable{
     int[] peer_min; 	//keep track of the this instances knowledge of other peers mins, 
     					
     AtomicInteger dmsgcnt;        //keep track of number of dmsg
+    AtomicBoolean needdmsg;       //used when sending request or responses for doen message info
 
     /**
      * Call the constructor to create a Paxos peer.
@@ -67,8 +68,11 @@ public class Paxos implements PaxosRMI, Runnable{
         _min = new AtomicInteger(-1);
         prepared=null;
         accepted=null;
-        m4 = new Semaphore(1);
+        proposerLock = new Semaphore(1);
         peer_min = new int[peers.length];
+        statusLock=new ReentrantLock();
+        preparedLock=new ReentrantLock();
+        acceptedLock= new ReentrantLock();
         
         
         // register peers, do not modify this part
@@ -137,7 +141,7 @@ public class Paxos implements PaxosRMI, Runnable{
      */
     public void Start(int seq, Object value){
     	try {
-			m4.acquire(); 	// lock this paxos instance variables so that the new thread c
+			proposerLock.acquire(); 	// lock this paxos instance variables so that the new thread c
 							// can be created first
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
@@ -154,7 +158,7 @@ public class Paxos implements PaxosRMI, Runnable{
     	//this is the proposer
     	Object value = tmp;
     	int seq = tmpseq;
-    	m4.release();
+    	proposerLock.release();
     	
     	int proposal=0;
     	int count=0;
@@ -200,14 +204,19 @@ public class Paxos implements PaxosRMI, Runnable{
     // RMI handler
     public Response Prepare(Request req){
     	assert req.value == null;
+    	if (req.dmsg){
+			peer_min[req.pid] = req.dvalue;
+		}
     	if ( prepared != null && req.l < prepared.l ) return new Response(false);
     	else {
 			prepared = req;
+			acceptedLock.lock();
     		if (accepted == null){
+    			acceptedLock.unlock();
     			return new Response(true);
     		}
     		else{
-    			return new Response(true, prepared.seq , prepared.l , prepared.value);	
+    			return new Response(true, accepted.seq , accepted.l , accepted.value);	
     		}
     	}
 
@@ -215,15 +224,24 @@ public class Paxos implements PaxosRMI, Runnable{
 
     public Response Accept(Request req){
     	assert req.value != null;
+    	if (req.dmsg){
+			peer_min[req.pid] = req.dvalue;
+		}
+    	preparedLock.lock();
     	if ( prepared != null && req.l < prepared.l ) return new Response(false);
     	else {
+    			preparedLock.unlock();
+    			acceptedLock.lock();
     			accepted = req;
+    			acceptedLock.unlock();
     			return new Response(true);
     	}
     }
 
     public Response Decide(Request req){
-        // your code here
+    	if (req.dmsg){
+			peer_min[req.pid] = req.dvalue;
+		}
     	return new Response(true);
     }
 
