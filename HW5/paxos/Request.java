@@ -10,23 +10,29 @@ import java.io.Serializable;
 public class Request implements Serializable {
     static final long serialVersionUID=1L;
     // Your data here
-    Integer seq;
-//    Integer prop;
+    boolean dmsg; //used to convey if done information needs to be carried
+    boolean proposal; //used to indicate if the message if to get proposal number
+    int seq;
+    int pid; // peerid of the requester
+    int l;
     Object value;
+    int dvalue; //used to convey the last done value this instance had
 
     // Your constructor and methods here
-    public Request() {
-    	seq = null;
-//    	prop = null;
+    public Request(int seq, int n, int me) {
+    	this.seq = -1;
+    	l=n;
     	value = null;
     }
     
-    public void setPrepare(int n) {
-    	this.seq = n;
+    public Request(int seq, int n, int me, Object v) {
+    	this.seq = seq;
+    	l=n;
+    	value = v;
     }
     
-    public void setAccept(int n, Object v) {
-    	seq = n;
-    	value = v;
+    public void setDone(int v){
+    	dmsg=true;
+    	dvalue=v;
     }
 }

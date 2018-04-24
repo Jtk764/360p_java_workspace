@@ -2,7 +2,12 @@ package paxos;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.rmi.registry.Registry;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Random;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -22,7 +27,25 @@ public class Paxos implements PaxosRMI, Runnable{
     AtomicBoolean unreliable;// for testing
 
     // Your data here
-
+    AtomicInteger _max;
+    AtomicInteger _min;
+	
+												//needs lock
+    HashMap<Integer, Response> seqResponseMap; 	//keeps track of latest response for each sequence
+    Request prepared;
+    Request accepted;
+    HashMap<Integer, retStatus> seqStatus;
+    ReentrantLock m1; 	//for prepared
+    ReentrantLock m2; 	//for accepted
+    ReentrantLock m3; 	//for status
+    Semaphore m4; 		//used for proposer creation
+    Object tmp; 		//used for proposer creation
+    int tmpseq; 		//used for proposer creation
+    					
+    					//needs lock
+    int[] peer_min; 	//keep track of the this instances knowledge of other peers mins, 
+    					
+    AtomicInteger dmsgcnt;        //keep track of number of dmsg
 
     /**
      * Call the constructor to create a Paxos peer.
@@ -38,9 +61,16 @@ public class Paxos implements PaxosRMI, Runnable{
         this.dead = new AtomicBoolean(false);
         this.unreliable = new AtomicBoolean(false);
 
-        // Your initialization code here
-
-
+        this.seqResponseMap = new HashMap<Integer, Response>();
+        seqStatus=new HashMap<Integer, retStatus>();
+        _max = new AtomicInteger(-1);
+        _min = new AtomicInteger(-1);
+        prepared=null;
+        accepted=null;
+        m4 = new Semaphore(1);
+        peer_min = new int[peers.length];
+        
+        
         // register peers, do not modify this part
         try{
             System.setProperty("java.rmi.server.hostname", this.peers[this.me]);
@@ -106,28 +136,95 @@ public class Paxos implements PaxosRMI, Runnable{
      * is reached.
      */
     public void Start(int seq, Object value){
-        // Your code here
+    	try {
+			m4.acquire(); 	// lock this paxos instance variables so that the new thread c
+							// can be created first
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	tmp = value;
+    	tmpseq=seq;
+    	new Thread(this).start();
     }
 
     @Override
     public void run(){
         //Your code here
+    	//this is the proposer
+    	Object value = tmp;
+    	int seq = tmpseq;
+    	m4.release();
+    	
+    	int proposal=0;
+    	int count=0;
+    	for (int i = 0; i < ports.length; i++){
+    		Request r = new Request(seq, -1, me);
+    		r.proposal=true;
+    		Response resp=Call("Decide", r, i);
+    		if (resp != null && resp.pvalue > proposal){
+    			proposal = resp.pvalue+1;
+    		}	
+    	}
+    	for (int i = 0; i < ports.length; i++){ // send and handle the prepare
+    		Request r = new Request(seq, proposal, me);
+    		Response resp=Call("Prepare", r, i);
+    		if (resp != null && resp.ack){
+    			count++;
+	    		if ( resp.n_a > seqResponseMap.get(Integer.valueOf(seq)).n_a){  //needs lock
+	    			seqResponseMap.put(Integer.valueOf(seq), resp);
+	    		}
+	    		if (resp.dmsg){
+	    			peer_min[i] = resp.dvalue;
+	    		}
+    		}
+    	}
+    	if ( count >= (ports.length/2)+1){
+    		count=0;
+    		for (int i = 0; i < ports.length; i++){ // send and handle the accept
+    			if (seqResponseMap.get(seq) != null ) //needs lock
+    				value = seqResponseMap.get(seq).v_a; // use value from memory
+        		Request r = new Request(seq, proposal, me, value);
+        		Response resp=Call("Prepare", r, i);
+        		if (resp != null && resp.ack){
+        			count++;
+    	    		if (resp.dmsg){
+    	    			peer_min[i] = resp.dvalue;
+    	    		}
+        		}
+        	}
+    	}
+    	
     }
 
     // RMI handler
     public Response Prepare(Request req){
-        // your code here
+    	assert req.value == null;
+    	if ( prepared != null && req.l < prepared.l ) return new Response(false);
+    	else {
+			prepared = req;
+    		if (accepted == null){
+    			return new Response(true);
+    		}
+    		else{
+    			return new Response(true, prepared.seq , prepared.l , prepared.value);	
+    		}
+    	}
 
     }
 
     public Response Accept(Request req){
-        // your code here
-
+    	assert req.value != null;
+    	if ( prepared != null && req.l < prepared.l ) return new Response(false);
+    	else {
+    			accepted = req;
+    			return new Response(true);
+    	}
     }
 
     public Response Decide(Request req){
         // your code here
-
+    	return new Response(true);
     }
 
     /**
@@ -147,7 +244,7 @@ public class Paxos implements PaxosRMI, Runnable{
      * this peer.
      */
     public int Max(){
-        // Your code here
+        return _max.get();
     }
 
     /**
@@ -179,8 +276,7 @@ public class Paxos implements PaxosRMI, Runnable{
      * instances.
      */
     public int Min(){
-        // Your code here
-
+        return _min.get();
     }
 
 
@@ -193,8 +289,7 @@ public class Paxos implements PaxosRMI, Runnable{
      * it should not contact other Paxos peers.
      */
     public retStatus Status(int seq){
-        // Your code here
-
+    	return seqStatus.get(Integer.valueOf(seq));
     }
 
     /**

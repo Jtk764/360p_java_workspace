@@ -10,29 +10,37 @@ public class Response implements Serializable {
     static final long serialVersionUID=2L;
     // your data here
     boolean ack;
-    boolean acceptOK;
-    
-    Integer seq;
-    Integer n_a;
+    boolean dmsg; //used to convey if done information needs to be carried
+    int seq;
+    int n_a;
     Object v_a;
-    
+    int dvalue; //used to convey the last done value this instance had
+    int pvalue; //
 
     // Your constructor and methods here
-    public Response(boolean accept, boolean ack) {
-    	this.acceptOK = accept;
+    public Response(boolean ack) {
     	this.ack = ack;
-    	this.seq = null;
-    	this.n_a = null;
+    	this.seq = -1;
+    	this.n_a = -1;
     	this.v_a = null;
     }
     
-    public void prepare_ok(int seq, int nA, Object vA) {
+    public Response(boolean ack, int seq, int nA, Object vA) {
+    	this.ack = ack;
     	this.seq = seq;
     	this.n_a = nA;
     	this.v_a = vA;
     }
     
-    public void accept_ok(int seq) {
+    public Response(boolean ack, int seq) {
+    	this.ack = ack;
     	this.seq = seq;
+    	this.n_a = -1;
+    	this.v_a = null;
+    }
+    
+    public void setDone(int v){
+    	dmsg=true;
+    	dvalue=v;
     }
 }
