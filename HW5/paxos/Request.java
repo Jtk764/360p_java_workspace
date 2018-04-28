@@ -31,8 +31,4 @@ public class Request implements Serializable {
     	value = v;
     }
     
-    public void setDone(int v){
-    	dmsg=true;
-    	dvalue=v;
-    }
 }

@@ -4,6 +4,7 @@ import java.rmi.server.UnicastRemoteObject;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -19,7 +20,10 @@ public class Paxos implements PaxosRMI, Runnable{
     String[] peers; // hostname
     int[] ports; // host port
     int me; // index into peers[]
+    
+    
 
+    
     Registry registry;
     PaxosRMI stub;
 
@@ -28,26 +32,29 @@ public class Paxos implements PaxosRMI, Runnable{
 
     // Your data here
     AtomicInteger _max;
-    AtomicInteger _min;
-	
+	min _min;
 												//needs lock
     HashMap<Integer, Response> seqResponseMap; 	//keeps track of latest response for each sequence
     ReentrantLock responseLock;
-    Request prepared;
-    Request accepted;
+    
+    HashMap<Integer, Request> preparedMap;
+    HashMap<Integer, Request> acceptedMap;
     HashMap<Integer, retStatus> seqStatus;
-    ReentrantLock preparedLock; 	//for prepared
-    ReentrantLock acceptedLock; 	//for accepted
+    ReentrantLock preparedLock; //for prepared
+    ReentrantLock acceptedLock; //for accepted
     ReentrantLock statusLock; 	//for status
-    Semaphore proposerLock; 		//used for proposer creation
-    Object tmp; 		//used for proposer creation
-    int tmpseq; 		//used for proposer creation
+    
+    Semaphore proposerLock; 	//used for proposer creation
+    Object tmp; 				//used for proposer creation
+    int tmpseq; 				//used for proposer creation
     					
     					//needs lock
     ReentrantLock peerLock;
-    int[] peer_min; 	//keep track of the this instances knowledge of other peers mins, 
-    					
-    AtomicInteger dmsgcnt;        //keep track of number of dmsg
+    int[] done_peer; 	//keep track of the this instances knowledge of other peers mins, 
+    
+    
+    ReentrantLock doneLock;
+    boolean[] sentList;
     AtomicBoolean needdmsg;       //used when sending request or responses for doen message info
 
     /**
@@ -67,16 +74,17 @@ public class Paxos implements PaxosRMI, Runnable{
         this.seqResponseMap = new HashMap<Integer, Response>();
         seqStatus=new HashMap<Integer, retStatus>();
         _max = new AtomicInteger(-1);
-        _min = new AtomicInteger(-1);
-        prepared=null;
-        accepted=null;
+        _min=  new min(-1,-1);
+        preparedMap=new HashMap<Integer, Request>();
+        acceptedMap=new HashMap<Integer, Request>();
         proposerLock = new Semaphore(1);
-        peer_min = new int[peers.length];
+        done_peer = new int[peers.length];
         statusLock=new ReentrantLock();
         preparedLock=new ReentrantLock();
         acceptedLock= new ReentrantLock();
         responseLock = new ReentrantLock();
         peerLock = new ReentrantLock();
+        needdmsg = new AtomicBoolean(false);
         
         
         // register peers, do not modify this part
@@ -147,11 +155,14 @@ public class Paxos implements PaxosRMI, Runnable{
     	if(seq < Min()) {
     		return;
     	}
+    	statusLock.lock();
+    	seqStatus.putIfAbsent(Integer.valueOf(seq), new retStatus(State.Pending, null));
+    	statusLock.unlock();
     	try {
 			proposerLock.acquire(); 	// lock this paxos instance variables so that the new thread c
-							// can be created first
+										// can be created first
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
+										// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
     	tmp = value;
@@ -182,12 +193,15 @@ public class Paxos implements PaxosRMI, Runnable{
     	while(!decided) {
 	    	for (int i = 0; i < ports.length; i++){ // send and handle the prepare
 	    		Request r = new Request(seq, proposal, me);
-	    		if(needdmsg.get()) {
+	    		doneLock.lock();
+	    		if(needdmsg.get() && !sentList[i]) {
 	    			r.dmsg = true;
 	    			peerLock.lock();
-	    			r.dvalue = peer_min[me];
+	    			r.dvalue = done_peer[me];
 	    			peerLock.unlock();
+	    			sentList[i]=true;
 	    		}
+	    		doneLock.unlock();
 	    		Response resp=Call("Prepare", r, i);
 	    		if (resp != null){
 	    			if(resp.ack) {
@@ -199,8 +213,10 @@ public class Paxos implements PaxosRMI, Runnable{
 			    		responseLock.unlock();
 			    		if (resp.dmsg){
 			    			peerLock.lock();
-			    			peer_min[i] = resp.dvalue;
+			    			done_peer[i] = resp.dvalue;
+			    			if ( _min.pid == i) Min();
 			    			peerLock.unlock();
+			    			forget();
 			    		}
 	    			}
 	    			else if(resp.pvalue >= next_proposal) {
@@ -216,25 +232,52 @@ public class Paxos implements PaxosRMI, Runnable{
     			responseLock.unlock();
 	    		for (int i = 0; i < ports.length; i++){ // send and handle the accept	    			
 	        		Request r = new Request(seq, proposal, me, value);
-	        		if(needdmsg.get()) {
+		    		doneLock.lock();
+		    		if(needdmsg.get() && !sentList[i]) {
 		    			r.dmsg = true;
 		    			peerLock.lock();
-		    			r.dvalue = peer_min[me];
+		    			r.dvalue = done_peer[me];
 		    			peerLock.unlock();
+		    			sentList[i]=true;
 		    		}
+		    		doneLock.unlock();
 	        		Response resp=Call("Accept", r, i);
 	        		if (resp != null && resp.ack){
 	        			count++;
 	    	    		if (resp.dmsg){
 	    	    			peerLock.lock();
-	    	    			peer_min[i] = resp.dvalue;
-	    	    			peerLock.unlock();
+			    			done_peer[i] = resp.dvalue;
+			    			if ( _min.pid == i) Min();
+			    			peerLock.unlock();
+			    			forget();
 	    	    		}
 	        		}
 	        	}
 	    		if(count >= (ports.length/2)+1) {
 	    			decided = true;
-	    			//SEND DECIDE
+	    			statusLock.lock();
+	    			seqStatus.get(Integer.valueOf(seq)).state=State.Pending.Decided;
+	    			statusLock.unlock();
+	    			for (int i = 0; i < ports.length; i++){ // send and handle the done	    			
+		        		Request r = new Request(seq, proposal, me, value);
+			    		doneLock.lock();
+			    		if(needdmsg.get() && !sentList[i]) {
+			    			r.dmsg = true;
+			    			peerLock.lock();
+			    			r.dvalue = done_peer[me];
+			    			peerLock.unlock();
+			    			sentList[i]=true;
+			    		}
+			    		doneLock.unlock();
+		        		Response resp=Call("Decide", r, i);
+		        		if (resp != null && resp.dmsg){
+		        			peerLock.lock();
+			    			done_peer[i] = resp.dvalue;
+			    			if ( _min.pid == i) Min();
+			    			peerLock.unlock();
+			    			forget();
+		        		}
+	    			}
 	    		}
 	    	}
 	    	else {
@@ -245,49 +288,63 @@ public class Paxos implements PaxosRMI, Runnable{
 
     // RMI handler
     public Response Prepare(Request req){
-    	assert req.value == null;
+    	update(req, false);
     	if (req.dmsg){
-    		peerLock.lock();
-			peer_min[req.pid] = req.dvalue;
+			peerLock.lock();
+			done_peer[req.pid] = req.dvalue;
+			if ( _min.pid == req.pid) Min();
 			peerLock.unlock();
+			forget();
 		}
     	preparedLock.lock();
-    	if ( prepared != null && req.l < prepared.l ) {
+    	if ( preparedMap.get(Integer.valueOf(req.seq)) != null && 
+    			req.l < preparedMap.get(Integer.valueOf(req.seq)).l ) {
     		Response r = new Response(false);
-    		r.pvalue = prepared.l;
+    		r.pvalue = preparedMap.get(req.seq).l;
     		preparedLock.unlock();
-    		if(needdmsg.get()) {
+        	doneLock.lock();
+    		if(needdmsg.get() && !sentList[req.pid]) {
     			r.dmsg = true;
     			peerLock.lock();
-    			r.dvalue = peer_min[me];
+    			r.dvalue = done_peer[me];
     			peerLock.unlock();
+    			sentList[req.pid]=true;
     		}
+    		doneLock.unlock();
     		return r;
     	}
     	else {
-			prepared = req;
+			preparedMap.put(req.seq, req);
 			preparedLock.unlock();
 			acceptedLock.lock();
-    		if (accepted == null){
+    		if (acceptedMap.get(Integer.valueOf(req.seq)) == null){
     			acceptedLock.unlock();
     			Response r = new Response(true);
-    			if(needdmsg.get()) {
-        			r.dmsg = true;
-        			peerLock.lock();
-        			r.dvalue = peer_min[me];
-        			peerLock.unlock();
-        		}
+    	    	doneLock.lock();
+    			if(needdmsg.get() && !sentList[req.pid]) {
+    				r.dmsg = true;
+    				peerLock.lock();
+    				r.dvalue = done_peer[me];
+    				peerLock.unlock();
+    				sentList[req.pid]=true;
+    			}
+    			doneLock.unlock();
         		return r;
     		}
     		else{
-    			Response r = new Response(true, accepted.seq , accepted.l , accepted.value);
+    			Response r = new Response(true, req.seq , 
+    					acceptedMap.get(Integer.valueOf(req.seq)).l , 
+    					acceptedMap.get(Integer.valueOf(req.seq)).value);
     			acceptedLock.unlock();
-    			if(needdmsg.get()) {
-        			r.dmsg = true;
-        			peerLock.lock();
-        			r.dvalue = peer_min[me];
-        			peerLock.unlock();
-        		}
+	    		doneLock.lock();
+	    		if(needdmsg.get() && !sentList[req.pid]) {
+	    			r.dmsg = true;
+	    			peerLock.lock();
+	    			r.dvalue = done_peer[me];
+	    			peerLock.unlock();
+	    			sentList[req.pid]=true;
+	    		}
+	    		doneLock.unlock();
         		return r;
     		}
     	}
@@ -295,47 +352,68 @@ public class Paxos implements PaxosRMI, Runnable{
     }
 
     public Response Accept(Request req){
+    	update(req, false);
     	assert req.value != null;
     	if (req.dmsg){
-    		peerLock.lock();
-			peer_min[req.pid] = req.dvalue;
+			peerLock.lock();
+			done_peer[req.pid] = req.dvalue;
+			if ( _min.pid == req.pid) Min();
 			peerLock.unlock();
+			forget();
 		}
     	preparedLock.lock();
-    	if ( prepared != null && req.l < prepared.l ) {
+    	if ( preparedMap.get(Integer.valueOf(req.seq)) != null && 
+    			req.l < preparedMap.get(Integer.valueOf(req.seq)).l ) {
     		preparedLock.unlock();
     		Response r = new Response(false);
-    		if(needdmsg.get()) {
+        	doneLock.lock();
+    		if(needdmsg.get() && !sentList[req.pid]) {
     			r.dmsg = true;
     			peerLock.lock();
-    			r.dvalue = peer_min[me];
+    			r.dvalue = done_peer[me];
     			peerLock.unlock();
+    			sentList[req.pid]=true;
     		}
+    		doneLock.unlock();
     		return r;
     	}
     	else {
     			preparedLock.unlock();
     			acceptedLock.lock();
-    			accepted = req;
+    			acceptedMap.put(req.seq, req);
     			acceptedLock.unlock();
     			Response r = new Response(true);
-    			if(needdmsg.get()) {
-        			r.dmsg = true;
-        			peerLock.lock();
-        			r.dvalue = peer_min[me];
-        			peerLock.unlock();
-        		}
+    	    	doneLock.lock();
+    			if(needdmsg.get() && !sentList[req.pid]) {
+    				r.dmsg = true;
+    				peerLock.lock();
+    				r.dvalue = done_peer[me];
+    				peerLock.unlock();
+    				sentList[req.pid]=true;
+    			}
+    			doneLock.unlock();
         		return r;
     	}
     }
 
     public Response Decide(Request req){
+    	update(req, true);
     	if (req.dmsg){
     		peerLock.lock();
-			peer_min[req.pid] = req.dvalue;
+			done_peer[req.pid] = req.dvalue;
 			peerLock.unlock();
 		}
-    	return new Response(true);
+    	Response r = new Response(true);
+    	doneLock.lock();
+		if(needdmsg.get() && !sentList[req.pid]) {
+			r.dmsg = true;
+			peerLock.lock();
+			r.dvalue = done_peer[me];
+			peerLock.unlock();
+			sentList[req.pid]=true;
+		}
+		doneLock.unlock();
+    	return  r;
     }
     
     
@@ -348,9 +426,19 @@ public class Paxos implements PaxosRMI, Runnable{
      */
     public void Done(int seq) {
         // Your code here
+    	doneLock.lock();
+    	sentList= new boolean[peers.length];
+    	sentList[me]=true;
     	peerLock.lock();
-    	peer_min[me] = seq;
+    	done_peer[me] = seq;
     	peerLock.unlock();
+    	statusLock.lock();
+    	for (int i = Min(); i <= seq; i++){
+    		if(seqStatus.containsKey(Integer.valueOf(seq))){
+    			seqStatus.get(Integer.valueOf(seq)).state=State.Forgotten;
+    		}
+    	}
+    	statusLock.unlock();
     	needdmsg.set(true);
     }
     
@@ -395,12 +483,15 @@ public class Paxos implements PaxosRMI, Runnable{
      */
     public int Min(){
         peerLock.lock();
-    	int min = peer_min[me];
-        for(int i = 0; i < peer_min.length; i++) {
-        	if(peer_min[i] < min) {
-        		min = peer_min[i];
+    	_min.done= done_peer[me];
+    	_min.pid=me;
+        for(int i = 0; i < done_peer.length; i++) {
+        	if(done_peer[i] < _min.done) {
+        		_min.done = done_peer[i];
+        		_min.pid = i;
         	}
         }
+        int min=_min.done;
         peerLock.unlock();
         return min;
     }
@@ -431,6 +522,17 @@ public class Paxos implements PaxosRMI, Runnable{
         }
     }
 
+    
+    
+    public class min{
+        public int done;
+        public int pid ;
+
+        public min(int done, int pid){
+            this.done = done;
+            this.pid = pid;
+        }
+    }
     /**
      * Tell the peer to shut itself down.
      * For testing.
@@ -459,5 +561,23 @@ public class Paxos implements PaxosRMI, Runnable{
         return this.unreliable.get();
     }
 
-
+    private void forget(){
+    	statusLock.lock();
+    	for (int i = 0; i < Min(); i++){
+    		if(seqStatus.containsKey(Integer.valueOf(i))){
+    			seqStatus.remove(i);
+    		}
+    	}
+    	statusLock.unlock();
+    }
+    
+    private void update(Request r, boolean decide){
+    	statusLock.lock();
+    	if (r.seq > _max.get()){
+    		_max.set(r.seq);
+    	}
+    	if (decide) seqStatus.putIfAbsent(Integer.valueOf(r.seq), new retStatus(State.Pending, null));
+    	else seqStatus.put(Integer.valueOf(r.seq), new retStatus(State.Decided, r.value));
+    	statusLock.lock();
+    }
 }
