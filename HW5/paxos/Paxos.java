@@ -144,6 +144,9 @@ public class Paxos implements PaxosRMI, Runnable{
      * is reached.
      */
     public void Start(int seq, Object value){
+    	if(seq < Min()) {
+    		return;
+    	}
     	try {
 			proposerLock.acquire(); 	// lock this paxos instance variables so that the new thread c
 							// can be created first
@@ -179,6 +182,12 @@ public class Paxos implements PaxosRMI, Runnable{
     	while(!decided) {
 	    	for (int i = 0; i < ports.length; i++){ // send and handle the prepare
 	    		Request r = new Request(seq, proposal, me);
+	    		if(needdmsg.get()) {
+	    			r.dmsg = true;
+	    			peerLock.lock();
+	    			r.dvalue = peer_min[me];
+	    			peerLock.unlock();
+	    		}
 	    		Response resp=Call("Prepare", r, i);
 	    		if (resp != null){
 	    			if(resp.ack) {
@@ -201,12 +210,18 @@ public class Paxos implements PaxosRMI, Runnable{
 	    	}
 	    	if ( count >= (ports.length/2)+1){
 	    		count=0;
-	    		for (int i = 0; i < ports.length; i++){ // send and handle the accept
-	    			responseLock.lock();
-	    			if (seqResponseMap.get(seq) != null ) //needs lock
-	    				value = seqResponseMap.get(seq).v_a; // use value from memory
-	    			responseLock.unlock();
+	    		responseLock.lock();
+    			if (seqResponseMap.get(seq) != null ) //needs lock
+    				value = seqResponseMap.get(seq).v_a; // use value from memory
+    			responseLock.unlock();
+	    		for (int i = 0; i < ports.length; i++){ // send and handle the accept	    			
 	        		Request r = new Request(seq, proposal, me, value);
+	        		if(needdmsg.get()) {
+		    			r.dmsg = true;
+		    			peerLock.lock();
+		    			r.dvalue = peer_min[me];
+		    			peerLock.unlock();
+		    		}
 	        		Response resp=Call("Accept", r, i);
 	        		if (resp != null && resp.ack){
 	        			count++;
@@ -289,6 +304,8 @@ public class Paxos implements PaxosRMI, Runnable{
 		}
     	return new Response(true);
     }
+    
+    
 
     /**
      * The application on this machine is done with
@@ -298,8 +315,13 @@ public class Paxos implements PaxosRMI, Runnable{
      */
     public void Done(int seq) {
         // Your code here
+    	peerLock.lock();
+    	peer_min[me] = seq;
+    	peerLock.unlock();
+    	needdmsg.set(true);
     }
-
+    
+   
 
     /**
      * The application wants to know the
@@ -339,7 +361,15 @@ public class Paxos implements PaxosRMI, Runnable{
      * instances.
      */
     public int Min(){
-        return _min.get();
+        peerLock.lock();
+    	int min = peer_min[me];
+        for(int i = 0; i < peer_min.length; i++) {
+        	if(peer_min[i] < min) {
+        		min = peer_min[i];
+        	}
+        }
+        peerLock.unlock();
+        return min;
     }
 
 
