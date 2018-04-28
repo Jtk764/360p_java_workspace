@@ -253,10 +253,16 @@ public class Paxos implements PaxosRMI, Runnable{
 		}
     	preparedLock.lock();
     	if ( prepared != null && req.l < prepared.l ) {
-    		Response res = new Response(false);
-    		res.pvalue = prepared.l;
+    		Response r = new Response(false);
+    		r.pvalue = prepared.l;
     		preparedLock.unlock();
-    		return res;
+    		if(needdmsg.get()) {
+    			r.dmsg = true;
+    			peerLock.lock();
+    			r.dvalue = peer_min[me];
+    			peerLock.unlock();
+    		}
+    		return r;
     	}
     	else {
 			prepared = req;
@@ -264,12 +270,25 @@ public class Paxos implements PaxosRMI, Runnable{
 			acceptedLock.lock();
     		if (accepted == null){
     			acceptedLock.unlock();
-    			return new Response(true);
+    			Response r = new Response(true);
+    			if(needdmsg.get()) {
+        			r.dmsg = true;
+        			peerLock.lock();
+        			r.dvalue = peer_min[me];
+        			peerLock.unlock();
+        		}
+        		return r;
     		}
     		else{
-    			Response res = new Response(true, accepted.seq , accepted.l , accepted.value);
+    			Response r = new Response(true, accepted.seq , accepted.l , accepted.value);
     			acceptedLock.unlock();
-    			return res;	
+    			if(needdmsg.get()) {
+        			r.dmsg = true;
+        			peerLock.lock();
+        			r.dvalue = peer_min[me];
+        			peerLock.unlock();
+        		}
+        		return r;
     		}
     	}
 
@@ -285,14 +304,28 @@ public class Paxos implements PaxosRMI, Runnable{
     	preparedLock.lock();
     	if ( prepared != null && req.l < prepared.l ) {
     		preparedLock.unlock();
-    		return new Response(false);
+    		Response r = new Response(false);
+    		if(needdmsg.get()) {
+    			r.dmsg = true;
+    			peerLock.lock();
+    			r.dvalue = peer_min[me];
+    			peerLock.unlock();
+    		}
+    		return r;
     	}
     	else {
     			preparedLock.unlock();
     			acceptedLock.lock();
     			accepted = req;
     			acceptedLock.unlock();
-    			return new Response(true);
+    			Response r = new Response(true);
+    			if(needdmsg.get()) {
+        			r.dmsg = true;
+        			peerLock.lock();
+        			r.dvalue = peer_min[me];
+        			peerLock.unlock();
+        		}
+        		return r;
     	}
     }
 
