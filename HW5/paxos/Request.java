@@ -20,14 +20,16 @@ public class Request implements Serializable {
 
     // Your constructor and methods here
     public Request(int seq, int n, int me) {
-    	this.seq = -1;
+    	this.seq = seq;
     	l=n;
+    	pid=me;
     	value = null;
     }
     
     public Request(int seq, int n, int me, Object v) {
     	this.seq = seq;
     	l=n;
+    	pid=me;
     	value = v;
     }
     
