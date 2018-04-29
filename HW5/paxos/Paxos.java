@@ -185,6 +185,7 @@ public class Paxos implements PaxosRMI, Runnable{
     	int count=0;
 
     	while(!decided) {
+    		if (this.dead.get()) return;
 	    	for (int i = 0; i < ports.length; i++){ // send and handle the prepare
 	    		Request r = new Request(seq, proposal, me);
 	    		doneLock.lock();
@@ -196,7 +197,9 @@ public class Paxos implements PaxosRMI, Runnable{
 	    			sentList[i]=true;
 	    		}
 	    		doneLock.unlock();
-	    		Response resp=Call("Prepare", r, i);
+	    		Response resp;
+	    		if ( i == me) resp=Prepare(r);
+	    		else resp=Call("Prepare", r, i);
 	    		if (resp != null){
 	    			if(resp.ack) {
 		    			count++;
@@ -211,7 +214,7 @@ public class Paxos implements PaxosRMI, Runnable{
 			    			if (i != me) done_peer[i] = resp.dvalue;
 			    			Min();
 			    			peerLock.unlock();
-			    			forget();
+			    			//forget();
 			    		}
 	    			}
 	    			else if(resp.pvalue >= next_proposal) {
@@ -236,7 +239,9 @@ public class Paxos implements PaxosRMI, Runnable{
 		    			sentList[i]=true;
 		    		}
 		    		doneLock.unlock();
-	        		Response resp=Call("Accept", r, i);
+		    		Response resp;
+		    		if ( i == me) resp=Accept(r);
+		    		else resp=Call("Accept", r, i);
 	        		if (resp != null && resp.ack){
 	        			count++;
 	    	    		if (resp.dmsg){
@@ -244,7 +249,7 @@ public class Paxos implements PaxosRMI, Runnable{
 			    			done_peer[i] = resp.dvalue;
 			    			Min();
 			    			peerLock.unlock();
-			    			forget();
+			    			//forget();
 	    	    		}
 	        		}
 	        	}
@@ -264,13 +269,15 @@ public class Paxos implements PaxosRMI, Runnable{
 			    			sentList[i]=true;
 			    		}
 			    		doneLock.unlock();
-		        		Response resp=Call("Decide", r, i);
+		        		Response resp;
+		        		if ( i == me) resp=Decide(r);
+			    		else resp=Call("Decide", r, i);
 		        		if (resp != null && resp.dmsg){
 		        			peerLock.lock();
 			    			done_peer[i] = resp.dvalue;
 			    			Min();
 			    			peerLock.unlock();
-			    			forget();
+			    			//forget();
 		        		}
 	    			}
 	    		}
@@ -289,7 +296,7 @@ public class Paxos implements PaxosRMI, Runnable{
 			done_peer[req.pid] = req.dvalue;
 			Min();
 			peerLock.unlock();
-			forget();
+			//forget();
 		}
     	preparedLock.lock();
     	if ( preparedMap.get(Integer.valueOf(req.seq)) != null && 
@@ -354,7 +361,7 @@ public class Paxos implements PaxosRMI, Runnable{
 			done_peer[req.pid] = req.dvalue;
 			if ( _min.pid == req.pid) Min();
 			peerLock.unlock();
-			forget();
+			//forget();
 		}
     	preparedLock.lock();
     	if ( preparedMap.get(Integer.valueOf(req.seq)) != null && 
@@ -436,13 +443,6 @@ public class Paxos implements PaxosRMI, Runnable{
     	statusLock.unlock();
     	needdmsg.set(true);
     	doneLock.unlock();
-    	for (int i=0; i < peers.length; i++){
-    		Request r = new Request(0,-1, me);
-    		r.dmsg=true;
-    		r.dvalue=seq;
-    		Call("Prepare", r, i);
-    	}
-    	
     }
     
    
@@ -511,7 +511,10 @@ public class Paxos implements PaxosRMI, Runnable{
      * it should not contact other Paxos peers.
      */
     public retStatus Status(int seq){
-    	return seqStatus.get(Integer.valueOf(seq));
+    	statusLock.lock();
+    	retStatus tmp=seqStatus.get(Integer.valueOf(seq));
+    	statusLock.unlock();
+    	return tmp;
     }
 
     /**
@@ -577,11 +580,6 @@ public class Paxos implements PaxosRMI, Runnable{
     }
     
     private void update(Request r, boolean decide){
-    	boolean test = peerLock.isLocked();
-    	boolean test2 = doneLock.isLocked();
-    	boolean test3 = responseLock.isLocked();
-    	boolean test4 = preparedLock.isLocked();
-    	boolean test5 = acceptedLock.isLocked();
     	
     	statusLock.lock();
     	if (r.seq > _max.get()){
