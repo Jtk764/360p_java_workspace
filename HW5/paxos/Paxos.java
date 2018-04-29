@@ -300,7 +300,7 @@ public class Paxos implements PaxosRMI, Runnable{
 		}
     	preparedLock.lock();
     	if ( preparedMap.get(Integer.valueOf(req.seq)) != null && 
-    			req.l < preparedMap.get(Integer.valueOf(req.seq)).l ) {
+    			req.l <= preparedMap.get(Integer.valueOf(req.seq)).l ) {
     		Response r = new Response(false);
     		r.pvalue = preparedMap.get(req.seq).l;
     		preparedLock.unlock();
