@@ -53,7 +53,7 @@ public class KVPaxosTest {
         		c[j].Put(keys[i], j);
         	}
         }
-        check(ck, "e", 9);
+        check(c[0], "e", 9);
         System.out.println("... Passed?");
 
     }
