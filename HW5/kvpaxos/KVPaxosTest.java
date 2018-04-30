@@ -17,7 +17,7 @@ public class KVPaxosTest {
 
     @Test
     public void TestBasic(){
-        final int npaxos = 5;
+        final int npaxos = 3;
         String host = "127.0.0.1";
         String[] peers = new String[npaxos];
         int[] ports = new int[npaxos];
@@ -32,6 +32,7 @@ public class KVPaxosTest {
         }
 
         Client ck = new Client(peers, ports);
+        
         System.out.println("Test: Basic put/get ...");
         ck.Put("app", 6);
         check(ck, "app", 6);
@@ -39,7 +40,23 @@ public class KVPaxosTest {
         check(ck, "a", 70);
 
         System.out.println("... Passed");
+        
+        Client c[] = new Client[10];
+        
+        for (int i = 0; i < 10; i++) {
+        	c[i] = new Client(peers, ports);
+        }
+        String keys[] = {"a", "b", "c", "d", "e"};
+        System.out.println("Test: dups ...");
+        for (int i = 0; i<5; i++) {
+        	for(int j = 0; j < 10; j++) {
+        		c[j].Put(keys[i], j);
+        	}
+        }
+        check(ck, "e", 9);
+        System.out.println("... Passed?");
 
     }
+    
 
 }

@@ -62,7 +62,7 @@ public class Server implements KVPaxosRMI {
     public Response Get(Request req){
         // Your code here
     	Op op = req.op;
-    	int seq = nextSeq();
+    	int seq = nextSeq(op);
     	px.Start(seq, op);
     	
     	Op got = wait(seq);
@@ -88,8 +88,10 @@ public class Server implements KVPaxosRMI {
     	logLock.lock();
     	for(int seq : log.keySet()) {
     		Op entry = log.get(seq);
+//    		System.out.format("%s %s %d\n", entry.op, entry.key, entry.value);
     		
     		if(entry.op.equals("Put")){
+    			
     			storeLock.lock();
     			store.put(entry.key, entry.value);
     			storeLock.unlock();
@@ -112,7 +114,8 @@ public class Server implements KVPaxosRMI {
     	//When decided, send back true if decided Op matches your Op, else false
     	Op op = req.op;
     	
-    	int seq = nextSeq();
+    	int seq = nextSeq(op);
+    	if(seq<0) return new Response(false);
     	
 
     	px.Start(seq, op);
@@ -126,7 +129,7 @@ public class Server implements KVPaxosRMI {
 
     }
     
-    public int nextSeq() {
+    public int nextSeq(Op req) {
     	int seq = max.get();
     	Paxos.retStatus stat = px.Status(seq);
     	while(stat != null) {
@@ -135,14 +138,17 @@ public class Server implements KVPaxosRMI {
     		
     		
     		if(stat.state == State.Decided) {
+    			Op val = (Op)stat.v;
+        		if(val.ClientSeq == req.ClientSeq && val.op.equals(req.op) && val.key.equals(req.key)) return -1;
     			log.put(seq, (Op)stat.v);
+    			
     			seq = max.incrementAndGet();
     			stat = px.Status(seq);
+    			
     		}
     		else {
-    			log.put(seq, null);
-    			seq = max.incrementAndGet();
-    			stat = px.Status(seq);
+    			seq = max.getAndIncrement();
+    			break;
     		}
     	}
     	return seq;
