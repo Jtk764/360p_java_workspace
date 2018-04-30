@@ -19,7 +19,7 @@ public class Client {
         this.ports = ports;
         // Your initialization code here
         if(id == null) {
-        	id.set(0);
+        	id = new AtomicInteger(0);
         	client_id = 0;
         }
         else client_id = id.incrementAndGet();
@@ -60,6 +60,17 @@ public class Client {
     // RMI handlers
     public Integer Get(String key){
         // Your code here
+    	Op op = new Op("Get", client_id, key, null);
+    	Request req = new Request(op);
+    	
+    	Response res = null;
+    	int index = 0;
+    	while(res == null) {
+    		res = Call("Get", req, index);
+    		index = (index+1)%ports.length;
+    	}
+    	if(res.success) return res.got.value;
+    	else return null;
 
     }
 

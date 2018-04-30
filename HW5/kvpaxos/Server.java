@@ -25,7 +25,7 @@ public class Server implements KVPaxosRMI {
     HashMap<String, Integer> store;		//key value store this replica knows so far
     ReentrantLock storeLock;
     
-    HashMap<Integer, Paxos.retStatus> log;		//log of paxos agreements 
+    HashMap<Integer, Op> log;		//log of paxos agreements 
     ReentrantLock logLock;
     
     AtomicInteger max;	//for knowing next sequence number to try
@@ -42,8 +42,9 @@ public class Server implements KVPaxosRMI {
         store = new HashMap<String, Integer>();
         storeLock = new ReentrantLock();
         
-        log = new HashMap<Integer, Paxos.retStatus>();
+        log = new HashMap<Integer, Op>();
         logLock = new ReentrantLock();
+        max = new AtomicInteger(0);
         
 
         try{
@@ -60,9 +61,46 @@ public class Server implements KVPaxosRMI {
     // RMI handlers
     public Response Get(Request req){
         // Your code here
-
+    	Op op = req.op;
+    	int seq = nextSeq();
+    	px.Start(seq, op);
+    	
+    	Op got = wait(seq);
+    	logLock.lock();
+    	log.put(seq, got);
+    	logLock.unlock();
+    	
+    	readLog();
+    	
+    	if(got.equals(op)) {
+    		storeLock.lock();
+    		Op ret = new Op("Get", op.ClientSeq, op.key, store.get(op.key));
+    		storeLock.unlock();
+    		Response r = new Response(true);
+    		r.got = ret;
+    		return r;
+    	}
+    	else return new Response(false);
     }
-
+    
+    public void readLog() {
+    	
+    	logLock.lock();
+    	for(int seq : log.keySet()) {
+    		Op entry = log.get(seq);
+    		
+    		if(entry.op.equals("Put")){
+    			storeLock.lock();
+    			store.put(entry.key, entry.value);
+    			storeLock.unlock();
+    		}
+    		px.Done(seq);
+    	}
+    	log.clear();
+    	logLock.unlock();
+    	
+    }
+    
     public Response Put(Request req){
         // Your code here
     	//Find a sequence number for this req
@@ -74,6 +112,21 @@ public class Server implements KVPaxosRMI {
     	//When decided, send back true if decided Op matches your Op, else false
     	Op op = req.op;
     	
+    	int seq = nextSeq();
+    	
+
+    	px.Start(seq, op);
+    	
+    	Op got = wait(seq);
+    	logLock.lock();
+    	log.put(seq, got);
+    	logLock.unlock();
+    	
+    	return new Response(true);
+
+    }
+    
+    public int nextSeq() {
     	int seq = max.get();
     	Paxos.retStatus stat = px.Status(seq);
     	while(stat != null) {
@@ -82,25 +135,17 @@ public class Server implements KVPaxosRMI {
     		
     		
     		if(stat.state == State.Decided) {
-    			log.put(seq, stat);
+    			log.put(seq, (Op)stat.v);
     			seq = max.incrementAndGet();
     			stat = px.Status(seq);
     		}
     		else {
     			log.put(seq, null);
-    			seq = max.decrementAndGet();
+    			seq = max.incrementAndGet();
     			stat = px.Status(seq);
     		}
     	}
-    	
-
-    	px.Start(seq, op);
-    	
-    	Op got = wait(seq);
-    	log.put(seq, px.Status(seq));
-    	
-    	return new Response(true);
-
+    	return seq;
     }
     
     public Op wait(int seq) {
