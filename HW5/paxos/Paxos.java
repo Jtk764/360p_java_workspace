@@ -157,7 +157,7 @@ public class Paxos implements PaxosRMI, Runnable{
     		return;
     	}
     	statusLock.lock();
-    	seqStatus.putIfAbsent(Integer.valueOf(seq), new retStatus(State.Pending, null));
+    	for (int i =Min(); i <= seq; i++ ) seqStatus.putIfAbsent(Integer.valueOf(i), new retStatus(State.Pending, null));
     	statusLock.unlock();
     	try {
 			proposerLock.acquire(); 	// lock this paxos instance variables so that the new thread c
@@ -208,6 +208,10 @@ public class Paxos implements PaxosRMI, Runnable{
 			    				resp.n_a > seqResponseMap.get(Integer.valueOf(seq)).n_a){  //needs lock
 			    			seqResponseMap.put(Integer.valueOf(seq), resp);
 			    		}
+			    		else if (seqResponseMap.get(Integer.valueOf(seq)) == null 
+			    				&& resp.n_a != -1){
+			    			seqResponseMap.put(Integer.valueOf(seq), resp);
+			    		}
 			    		responseLock.unlock();
 			    		if (resp.dmsg){
 			    			peerLock.lock();
@@ -255,10 +259,6 @@ public class Paxos implements PaxosRMI, Runnable{
 	        	}
 	    		if(count >= (ports.length/2)+1) {
 	    			decided = true;
-	    			statusLock.lock();
-	    			seqStatus.get(Integer.valueOf(seq)).state=State.Decided;
-	    			seqStatus.get(Integer.valueOf(seq)).v=value;
-	    			statusLock.unlock();
 	    			for (int i = 0; i < ports.length; i++){ // send and handle the done	    			
 		        		Request r = new Request(seq, proposal, me, value);
 			    		doneLock.lock();
@@ -355,7 +355,6 @@ public class Paxos implements PaxosRMI, Runnable{
 
     public Response Accept(Request req){
     	update(req, false);
-    	assert req.value != null;
     	if (req.dmsg){
 			peerLock.lock();
 			done_peer[req.pid] = req.dvalue;
@@ -585,7 +584,10 @@ public class Paxos implements PaxosRMI, Runnable{
     	if (r.seq > _max.get()){
     		_max.set(r.seq);
     	}
-    	if (!decide) seqStatus.putIfAbsent(Integer.valueOf(r.seq), new retStatus(State.Pending, null));
+    	for (int i=Min(); i < r.seq; i++) seqStatus.putIfAbsent(Integer.valueOf(i), new retStatus(State.Pending, null));
+    	if (!decide) {
+    		seqStatus.putIfAbsent(Integer.valueOf(r.seq), new retStatus(State.Pending, null));
+    	}
     	else seqStatus.put(Integer.valueOf(r.seq), new retStatus(State.Decided, r.value));
     	statusLock.unlock();
     }
