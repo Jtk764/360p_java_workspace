@@ -511,6 +511,9 @@ public class Paxos implements PaxosRMI, Runnable{
      */
     public retStatus Status(int seq){
     	statusLock.lock();
+    	if (seq >= Min()){
+    		seqStatus.putIfAbsent(Integer.valueOf(seq), new retStatus(State.Pending, null));
+    	}
     	retStatus tmp=seqStatus.get(Integer.valueOf(seq));
     	statusLock.unlock();
     	return tmp;
@@ -584,7 +587,7 @@ public class Paxos implements PaxosRMI, Runnable{
     	if (r.seq > _max.get()){
     		_max.set(r.seq);
     	}
-    	for (int i=Min(); i < r.seq; i++) seqStatus.putIfAbsent(Integer.valueOf(i), new retStatus(State.Pending, null));
+    	//for (int i=Min(); i < r.seq; i++) seqStatus.putIfAbsent(Integer.valueOf(i), new retStatus(State.Pending, null));
     	if (!decide) {
     		seqStatus.putIfAbsent(Integer.valueOf(r.seq), new retStatus(State.Pending, null));
     	}
